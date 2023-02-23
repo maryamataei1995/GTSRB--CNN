@@ -1,0 +1,203 @@
+# In[1]:
+
+
+import tensorflow as tf
+from tensorflow.keras import Sequential 
+from tensorflow.keras.layers import Conv2D,MaxPool2D,Dropout,Flatten,Dense,BatchNormalization
+
+
+# In[2]:
+
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+
+# In[3]:
+
+
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+datagen = ImageDataGenerator(rescale=1/255.0, validation_split=0.2)
+
+
+# # Train
+
+# In[4]:
+
+
+df_train = pd.read_csv('D:\\anaconda\\GTSRB\\gTrain.csv')
+df_train
+
+
+# In[5]:
+
+
+df_train['Path']=df_train.Path.apply(lambda x: 'D:\\anaconda\\GTSRB\\'+x)
+
+
+# In[6]:
+
+
+df_train['ClassId']=df_train.ClassId.astype(str)
+
+
+# In[7]:
+
+
+df_train.info()
+
+
+# In[8]:
+
+
+df_train # Path has ansoolute paths pointing to each image instead of just filenames
+
+
+# In[9]:
+
+
+width, height = 50,50
+trainDatagen = datagen.flow_from_dataframe(df_train, directory=None, x_col='Path', y_col='ClassId',
+                                           target_size=(width,height), class_mode = 'categorical', batch_size = 16, 
+                                           subset='training')
+
+
+# In[10]:
+
+
+x, y = trainDatagen.next()
+
+
+# In[11]:
+
+
+x.shape, y.shape
+
+
+# # Test Data
+
+# In[12]:
+
+
+df_test = pd.read_csv('D:\\anaconda\\GTSRB\\gTest.csv')
+
+
+# In[13]:
+
+
+df_test['Path']=df_test.Path.apply(lambda x: x[-9:])
+
+
+# In[14]:
+
+
+df_test['ClassId']=df_test.ClassId.astype(str)
+
+
+# In[15]:
+
+
+df_test.info()
+
+
+# In[16]:
+
+
+df_test
+
+
+# In[17]:
+
+
+testDatagen = datagen.flow_from_dataframe(df_test, directory='D:\\anaconda\\GTSRB\\Test', x_col='Path', y_col='ClassId',
+                                           target_size=(width,height), class_mode = 'categorical', batch_size = 16, 
+                                           subset='training')
+
+
+# In[18]:
+
+
+x, y = testDatagen.next()
+x.shape, y.shape
+
+
+# In[19]:
+
+
+model = Sequential() #Sequential Model
+
+#ConvLayer(64 filters) + MaxPooling + BatchNormalization + Dropout
+model.add(Conv2D(filters=32,kernel_size=3,activation='relu',padding='same',input_shape=(50,50,3)))
+model.add(MaxPool2D(strides=2))
+model.add(BatchNormalization())
+model.add(Dropout(0.3))
+
+#ConvLayer(128 filters) + MaxPooling + BatchNormalization + Dropout
+model.add(Conv2D(filters=128,kernel_size=3,activation='relu',padding='same'))
+model.add(MaxPool2D(strides=2))
+model.add(BatchNormalization())
+model.add(Dropout(0.3))
+
+#ConvLayer(512 filters) + Dropout + ConvLayer(512 filters) + MaxPooling + BatchNormalization
+model.add(Conv2D(filters=512,kernel_size=3,activation='relu',padding='same'))
+model.add(Dropout(0.3))
+model.add(Conv2D(filters=512,kernel_size=3,activation='relu',padding='same'))
+model.add(MaxPool2D(strides=2))
+model.add(BatchNormalization())
+
+#Flatten
+model.add(Flatten())
+
+#2 Dense layers with 4000 hidden units
+model.add(Dense(4000,activation='relu'))
+model.add(Dense(4000,activation='relu'))
+
+#Dense layer with 1000 hidden units
+model.add(Dense(1000,activation='relu'))
+
+#Softmax layer for output
+model.add(Dense(43,activation='softmax'))
+
+model.summary()
+
+
+# In[20]:
+
+
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+
+# In[21]:
+
+
+history= model.fit(trainDatagen, epochs=20, batch_size=32, validation_data = testDatagen, verbose=1)
+
+
+# In[22]:
+
+
+summary = pd.DataFrame(model.history.history)
+summary
+
+
+# In[23]:
+
+
+import matplotlib.pyplot as plt
+get_ipython().run_line_magic('matplotlib', 'inline')
+plt.plot(history.history["accuracy"])
+plt.plot(history.history["val_accuracy"])
+plt.title("Modelaccuracy")
+plt.ylabel("Accuracy")
+plt.xlabel("Epoch")
+plt.legend(["Train","Test"],loc="upper left")
+plt.show()
+
+plt.plot(history.history["loss"])
+plt.plot(history.history["val_loss"])
+plt.title("Model loss")
+plt.ylabel("loss")
+plt.xlabel("Epoch")
+plt.legend(["Train","Test"],loc="upper left")
+plt.show()
